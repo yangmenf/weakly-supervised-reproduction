@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Data and outputs
+data/
+outputs/
+w_outputs/
+logs/
+*.pth
+*.pth.tar
+*.ckpt
+*.pt
+
+# Pretrained models
+pretrained/
+weights/
+
+# Experiments
+experiments/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Environment
+.env
+venv/
+env/
+ENV/
+
+# Temporary files
+*.tmp
+*.temp
+error.log
+*.error
+
+# Git
+.git/
