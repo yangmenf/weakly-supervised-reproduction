@@ -1,10 +1,10 @@
 # 背景
 
-文件名：2026-01-10_1_paper-repro
-创建于：2026-01-10_18:06:46
-创建者：USER
-主分支：main
-任务分支：task/paper-repro_2026-01-10_1
+文件名：2026-01-10_1_paper-repro  
+创建于：2026-01-10_18:06:46  
+创建者：USER  
+主分支：main  
+任务分支：task/paper-repro_2026-01-10_1  
 Yolo模式：Off
 
 # 任务描述
@@ -27,7 +27,7 @@ Yolo模式：Off
 
 ## 论文1: MoRe (AAAI 2025)
 - **论文标题**: MoRe: Class Patch Attention Needs Regularization for Weakly Supervised Semantic Segmentation
-- **研究背景**: 弱监督语义分割（WSSS）通常使用类激活图（CAM）实现密集预测。最近，Vision Transformer（ViT）提供了从类-补丁注意力生成定位图的替代方案。然而，由于对建模此类注意力的约束不足，我们观察到定位注意力图（LAM）经常遇到伪影问题。
+- **研究背景**: 弱监督语义分割（WSSS）通常使用类激活图（CAM）实现密集预测。最近，Vision Transformer（ViT）提供了从类-补丁注意力生成定位图的替代方案。然而，由于对建模此类注意力的约束不足，定位注意力图（LAM）经常遇到伪影问题。
 - **核心方法**: 
   - 图类别表示（Graph Category Representation）模块：将注意力视为有向图，隐式正则化类-补丁实体之间的交互
   - 定位信息正则化（Localization-informed Regularization）模块：显式正则化类-补丁注意力
@@ -39,7 +39,7 @@ Yolo模式：Off
 
 ## 论文2: CDTR (TPAMI 2025 / ICCV 2023)
 - **论文标题**: CLIP-Driven Transformer for Weakly Supervised Object Localization
-- **研究背景**: 弱监督目标定位（WSOL）旨在仅使用图像级标签作为监督来定位目标。尽管最近将transformer纳入WSOL的进展已经带来改进，但这些方法通常依赖于类别无关的注意力图，导致次优的目标定位。
+- **研究背景**: 弱监督目标定位（WSOL）旨在仅使用图像级标签作为监督来定位目标。尽管最近将 transformer 纳入 WSOL 的进展带来改进，但这些方法通常依赖于类别无关的注意力图，导致次优的目标定位。
 - **核心方法**:
   - 类别感知刺激模块（Category-aware Stimulation Module, CSM）：将可学习的类别偏置嵌入到自注意力图中
   - 目标约束模块（Object Constraint Module, OCM）：以自监督方式细化目标区域
@@ -173,4 +173,4 @@ Yolo模式：Off
 4. 如有需要，调整超参数重新训练
 
 ## 总结
-本次任务成功完成了MoRe（AAAI 2025）和CDTR（TPAMI 2025）两篇论文的实验复现。两个实验的训练均已完成，代码已整理并上传到GitHub。虽然MoRe训练过程中出现了损失值为nan的情况，但训练流程完整执行完毕，所有checkpoint已保存。整体任务目标已达成。
+本次任务完成了MoRe（AAAI 2025）和CDTR（TPAMI 2025）两篇论文的实验复现。两个实验的训练均已完成，代码已整理并上传到GitHub。虽然MoRe训练过程中出现了损失值为nan的情况，但训练流程完整执行完毕，所有checkpoint已保存。整体任务目标已达成。

@@ -1,6 +1,6 @@
 # [AAAI2025] MoRe: Class Patch Attention Needs Regularization for Weakly Supervised Semantic Segmentation [![arXiv](https://img.shields.io/badge/arXiv-2303.02506-b31b1b.svg)](https://arxiv.org/pdf/2412.11076)
 
-We proposed MoRe to effectively tackle the artifact issue when generating Localization Attention Map (LAM) from class-patch attention in WSSS. 
+MoRe 通过正则化类-补丁注意力，有效解决弱监督语义分割中从类-补丁注意力生成定位注意力图（LAM）时的伪影问题。
 
 ## News
 
@@ -14,7 +14,7 @@ We proposed MoRe to effectively tackle the artifact issue when generating Locali
 <img src="/sources/main_figs.png" alt="MoRe pipeline" width="1200px">
 </p>
 
-Weakly Supervised Semantic Segmentation (WSSS) with image-level labels typically uses Class Activation Maps (CAM) to achieve dense predictions. Recently, Vision Transformer (ViT) has provided an alternative to generate localization maps from class-patch attention. However, due to insufficient constraints on modeling such attention, we observe that the Localization Attention Maps (LAM) often struggle with the artifact issue, i.e., patch regions with minimal semantic relevance are falsely activated by class tokens. In this work, we propose MoRe to address this issue and further explore the potential of LAM. Our findings suggest that imposing additional regularization on class-patch attention is necessary. To this end, we first view the attention as a novel directed graph and propose the Graph Category Representation module to implicitly regularize the interaction among class-patch entities. It ensures that class tokens dynamically condense the related patch information and suppress unrelated artifacts at a graph level. Second, motivated by the observation that CAM from classification weights maintains smooth localization of objects, we devise the Localization-informed Regularization module to explicitly regularize the class-patch attention. It directly mines the token relations from CAM and further supervises the consistency between class and patch tokens in a learnable manner. Extensive experiments are conducted on PASCAL VOC and MS COCO, validating that MoRe effectively addresses the artifact issue and achieves state-of-the-art performance, surpassing recent single-stage and even multi-stage methods.
+弱监督语义分割（WSSS）使用图像级标签时，通常使用类激活图（CAM）实现密集预测。最近，Vision Transformer（ViT）提供了从类-补丁注意力生成定位图的替代方案。然而，由于对建模此类注意力的约束不足，定位注意力图（LAM）经常遇到伪影问题，即语义相关性最小的补丁区域被类标记错误激活。本文提出 MoRe 来解决该问题并进一步探索 LAM 的潜力。研究发现，对类-补丁注意力施加额外的正则化是必要的。为此，首先将注意力视为有向图，提出图类别表示模块，隐式正则化类-补丁实体之间的交互。该模块确保类标记在图级别动态压缩相关补丁信息并抑制无关伪影。其次，基于分类权重生成的 CAM 保持对象平滑定位的观察，设计定位信息正则化模块，显式正则化类-补丁注意力。该模块直接从 CAM 挖掘标记关系，并以可学习方式进一步监督类和补丁标记之间的一致性。在 PASCAL VOC 和 MS COCO 上进行了大量实验，验证了 MoRe 有效解决伪影问题并达到最先进的性能，超越了最近的单阶段甚至多阶段方法。
 
 ## Data Preparation
 
@@ -27,8 +27,7 @@ wget http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar
 ```
 #### 2. Segmentation Labels
 
-The augmented annotations are from [SBD dataset](http://home.bharathh.info/pubs/codes/SBD/download.html). The download link of the augmented annotations at
-[DropBox](https://www.dropbox.com/s/oeu149j8qtbs1x0/SegmentationClassAug.zip?dl=0). After downloading ` SegmentationClassAug.zip `, you should unzip it and move it to `VOCdevkit/VOC2012/`. 
+增强标注来自 [SBD 数据集](http://home.bharathh.info/pubs/codes/SBD/download.html)。增强标注下载链接位于 [DropBox](https://www.dropbox.com/s/oeu149j8qtbs1x0/SegmentationClassAug.zip?dl=0)。下载 `SegmentationClassAug.zip` 后，解压并移动到 `VOCdevkit/VOC2012/`。
 
 ``` bash
 VOCdevkit/
@@ -51,7 +50,7 @@ wget http://images.cocodataset.org/zips/val2014.zip
 
 #### 2. Segmentation Labels
 
-To generate VOC style segmentation labels for COCO, you could use the scripts provided at this [repo](https://github.com/alicranck/coco2voc), or just download the generated masks from [Google Drive](https://drive.google.com/file/d/147kbmwiXUnd2dW9_j8L5L0qwFYHUcP9I/view?usp=share_link).
+为 COCO 生成 VOC 风格的分割标签，可使用 [repo](https://github.com/alicranck/coco2voc) 提供的脚本，或直接从 [Google Drive](https://drive.google.com/file/d/147kbmwiXUnd2dW9_j8L5L0qwFYHUcP9I/view?usp=share_link) 下载生成的掩码。
 
 ``` bash
 COCO/
@@ -65,9 +64,9 @@ COCO/
 
 ## Requirement
 
-Please refer to the requirements.txt. 
+请参考 requirements.txt。
 
-We incorporate a regularization loss for segmentation. Please refer to the instruction for this [python extension](https://github.com/meng-tang/rloss/tree/master/pytorch#build-python-extension-module).
+我们集成了用于分割的正则化损失。请参考该 [python extension](https://github.com/meng-tang/rloss/tree/master/pytorch#build-python-extension-module) 的说明。
 
 ## Train MoRe
 ``` bash
@@ -96,14 +95,14 @@ bash run_evaluate_seg_coco.sh tools/infer_seg_coco.py [gpu_device] [gpu_number] 
 </p>
 
 #### 2. Semantic Results
-Semantic performance on VOC and COCO. Logs and weights are available now.
+VOC 和 COCO 上的语义性能。日志和权重现已可用。
 | Dataset | Backbone |  Val  | Test | Log |
 |:-------:|:--------:|:-----:|:----:|:---:|
 |   PASCAL VOC   |   ViT-B  | 76.4  | [75.0](http://host.robots.ox.ac.uk/anonymous/9QW1IM.html) | [log](logs/voc_train.log) |
 |   MS COCO  |   ViT-B  |  47.4 |   -  | [log](logs/coco_train.log) |
 
 ## Citation 
-Please cite our work if you find it helpful to your reseach. :two_hearts:
+如果本工作对您的研究有帮助，请引用我们的工作。:two_hearts:
 ```bash
 @article{yang2024more,
   title={MoRe: Class Patch Attention Needs Regularization for Weakly Supervised Semantic Segmentation},
@@ -112,7 +111,7 @@ Please cite our work if you find it helpful to your reseach. :two_hearts:
   year={2024}
 }
 ```
-If you have any questions, please feel free to contact the author by zwyang21@m.fudan.edu.cn.
+如有任何问题，请通过 zwyang21@m.fudan.edu.cn 联系作者。
 
 ## Acknowledgement
-This repo is built upon [MCTformer Series](https://github.com/xulianuwa/MCTformer.git) and [SeCo](https://github.com/zwyang6/SeCo.git). Many thanks to their brilliant works!!!
+本仓库基于 [MCTformer Series](https://github.com/xulianuwa/MCTformer.git) 和 [SeCo](https://github.com/zwyang6/SeCo.git) 构建。感谢他们的出色工作！！！

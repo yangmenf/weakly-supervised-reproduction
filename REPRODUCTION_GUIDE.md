@@ -1,21 +1,23 @@
-# Server Reproduction Guide (MoRe & CDTR)
+# 服务器复现指南 (MoRe & CDTR)
 
-本文档旨在指导如何在 Linux 服务器 (如 RTX 4090D) 上从零开始配置环境、准备数据并运行 **MoRe** 和 **CDTR** 的复现实验。
-数据地址：/root/autodl-tmp
-代码地址：/root/Result Reproduction
+本文档记录在 Linux 服务器（如 RTX 4090D）上从零开始配置环境、准备数据并运行 **MoRe** 和 **CDTR** 复现实验的过程。
+
+数据地址：`/root/autodl-tmp`  
+代码地址：`/root/Result Reproduction`
+
 ---
 
 ## 1. 基础环境配置
 
-首先，确保你已安装 Anaconda。创建一个新的虚拟环境以隔离依赖。
+创建新的虚拟环境以隔离依赖。
 
 ```bash
-# 创建并激活名为 paper_repro 的环境 (Python 3.8 是稳妥选择)
+# 创建并激活名为 paper_repro 的环境 (Python 3.8)
 conda create -n paper_repro python=3.8 -y
 conda activate paper_repro
 
 # 安装 PyTorch (适配 RTX 4090 的 CUDA 11.8/12.1 版本)
-# 这里以 CUDA 12.1 为例
+# 以 CUDA 12.1 为例
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
@@ -23,7 +25,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 
 ## 2. 数据集解压与整理
 
-假设你已将数据集下载到 `autodl-tmp` (即本地的 `VOCtrainval` 和 `CUB` 压缩包已上传到服务器)。
+数据集已下载到 `autodl-tmp`（`VOCtrainval` 和 `CUB` 压缩包已上传到服务器）。
 
 ### 2.1 准备 PASCAL VOC 2012 (用于 MoRe)
 
@@ -57,7 +59,7 @@ tar -xzvf CUB_200_2011.tgz -C ./data/CUB
 
 ## 3. MoRe 复现指南 (WSSS)
 
-**核心目标**: 复现弱监督语义分割的训练流程。
+复现弱监督语义分割的训练流程。
 
 ### 3.1 安装依赖
 
@@ -83,13 +85,13 @@ MoRe 使用分布式训练脚本 `run_train.sh`。
 bash run_train.sh tools/train_cam.py 0 1 29500 "reproduce_voc_cam"
 ```
 
-_注意_: 如果脚本报错，请检查 `run_train.sh` 中调用的 python 文件路径是否正确 (通常是 `tools/train_wsss.py` 或类似，具体看代码目录 `tools/` 下的主训练文件)。
+如果脚本报错，请检查 `run_train.sh` 中调用的 python 文件路径是否正确（通常是 `tools/train_wsss.py` 或类似，具体看代码目录 `tools/` 下的主训练文件）。
 
 ---
 
 ## 4. CDTR 复现指南 (WSOL)
 
-**核心目标**: 复现弱监督目标定位的效果。
+复现弱监督目标定位的效果。
 
 ### 4.1 安装依赖
 
@@ -104,7 +106,7 @@ pip install git+https://github.com/openai/CLIP.git
 
 ### 4.2 运行训练
 
-CDTR 提供了 `scripts/train.sh`。我们需要指定 CUB 数据集的路径。
+CDTR 提供了 `scripts/train.sh`。需要指定 CUB 数据集的路径。
 
 ```bash
 # 修改 scripts/train.sh 或直接运行命令
@@ -120,32 +122,30 @@ python main.py \
   --output_dir ./output_cub
 ```
 
-如果你想使用提供的脚本：
+使用提供的脚本：
 
 ```bash
 # 确保在 CDTR 根目录下
 bash scripts/train.sh main.py 0 1 29501 "reproduce_cub_cdtr"
 ```
 
-_(注意检查 `scripts/train.sh` 内部是否硬编码了其他参数，可能需要手动修改它以指向正确的数据集路径)_
+注意检查 `scripts/train.sh` 内部是否硬编码了其他参数，可能需要手动修改它以指向正确的数据集路径。
 
 ---
 
 ## 5. 常见问题 (Troubleshooting)
 
-1.  **显存不足 (OOM)**:
+1. **显存不足 (OOM)**:
+   - 虽然 4090D 有 24GB，但如果 Batch Size 太大仍可能溢出。
+   - 解决方法: 在运行命令中调小 `--batch_size`（例如从 32 降到 16）。
 
-    - 虽然 4090D 有 24GB，但如果 Batch Size 太大仍可能溢出。
-    - 解决方法: 在运行命令中调小 `--batch_size` (例如从 32 降到 16)。
+2. **数据路径报错 (FileNotFound)**:
+   - 请再次确认解压后的路径结构。
+   - MoRe 通常通过配置文件 `configs/` 指定路径，建议修改配置文件中的 `data_root`。
+   - CDTR 通过命令行参数 `--data_root` 指定。
 
-2.  **数据路径报错 (FileNotFound)**:
-
-    - 请再次确认解压后的路径结构。
-    - MoRe 通常通过配置文件 `configs/` 指定路径，建议去修改配置文件中的 `data_root`。
-    - CDTR 通过命令行参数 `--data_root` 指定。
-
-3.  **CUDA 版本不匹配**:
-    - 如果遇到 `RuntimeError: CUDA error`，请检查 `nvcc --version` 和 `pip list | grep torch` 是否一致。
+3. **CUDA 版本不匹配**:
+   - 如果遇到 `RuntimeError: CUDA error`，请检查 `nvcc --version` 和 `pip list | grep torch` 是否一致。
 
 ---
 
