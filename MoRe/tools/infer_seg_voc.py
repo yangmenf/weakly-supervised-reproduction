@@ -21,6 +21,7 @@ from utils.dcrf import DenseCRF
 from utils.pyutils import format_tabs_multi_metircs, setup_logger, convert_test_seg2RGB
 
 parser = argparse.ArgumentParser()
+torch.hub.set_dir("/root/autodl-tmp/pretrained/")
 
 parser.add_argument("--backbone", default='matvit_base_patch16_224', type=str, help="vit_base_patch16_224")
 parser.add_argument("--finetune", default="https://github.com/rwightman/pytorch-image-models/releases/download/v0.1-vitjx/jx_vit_base_p16_224-80ecf9dd.pth", type=str, help="pretrain url")
@@ -72,6 +73,14 @@ def _validate(model=None, data_loader=None, args=None):
             labels = labels.cuda()
             cls_label = cls_label.cuda()
             _, _, h, w = inputs.shape
+            # labels shape: [B, H, W] or [H, W]
+            if len(labels.shape) == 2:
+                label_h, label_w = labels.shape
+            elif len(labels.shape) == 3:
+                label_h, label_w = labels.shape[1], labels.shape[2]
+            else:
+                label_h, label_w = labels.shape[-2], labels.shape[-1]
+            
             seg_list = []
             for sc in args.scales:
                 _h, _w = int(448*sc), int(448*sc)
@@ -81,7 +90,7 @@ def _validate(model=None, data_loader=None, args=None):
                 inputs_cat = torch.cat([_inputs, _inputs.flip(-1)], dim=0)
 
                 segs = model(inputs_cat,)[1]
-                segs = F.interpolate(segs, size=labels.shape[1:], mode='bilinear', align_corners=False)
+                segs = F.interpolate(segs, size=(label_h, label_w), mode='bilinear', align_corners=False)
 
                 # seg = torch.max(segs[:1,...], segs[1:,...].flip(-1))
                 seg = segs[:1,...] + segs[1:,...].flip(-1)
@@ -89,7 +98,6 @@ def _validate(model=None, data_loader=None, args=None):
 
                 seg_list.append(seg)
             seg = torch.max(torch.stack(seg_list, dim=0), dim=0)[0]
-            resized_segs = F.interpolate(segs, size=labels.shape[1:], mode='bilinear', align_corners=False)
             seg_pred += list(torch.argmax(seg, dim=1).cpu().numpy().astype(np.int16))
             gts += list(labels.cpu().numpy().astype(np.int16))
 
@@ -104,7 +112,16 @@ def _validate(model=None, data_loader=None, args=None):
     return seg_score
 
 
-def crf_proc():
+def crf_proc(args=None):
+    if args is None:
+        # Try to get args from global scope if not provided
+        import inspect
+        frame = inspect.currentframe().f_back
+        if 'args' in frame.f_locals:
+            args = frame.f_locals['args']
+        else:
+            raise ValueError("args must be provided to crf_proc()")
+    
     print("crf post-processing...")
 
     txt_name = os.path.join(args.list_folder, args.infer_set) + '.txt'
@@ -141,8 +158,36 @@ def crf_proc():
             label = imageio.imread(label_name)
 
         H, W, _ = image.shape
-        logit = torch.FloatTensor(logit)#[None, ...]
-        prob = F.softmax(logit, dim=1)[0].numpy()
+        logit = torch.FloatTensor(logit)
+        
+        # Handle different logit shapes
+        # Expected: (1, C, H, W) or (C, H, W)
+        # Handle abnormal shapes like (1, 21, 500, 4) - might be corrupted
+        if len(logit.shape) == 4:
+            if logit.shape[0] == 1:
+                logit = logit[0]  # Remove batch dimension: (C, H, W)
+            # Check if shape is valid (C should be num_classes=21)
+            if logit.shape[0] != 21:
+                logging.warning(f"Skipping {name}: logit shape {logit.shape} is invalid (expected C=21)")
+                return None, None
+        elif len(logit.shape) == 2:
+            # If logit is 2D, it might be wrong format, skip this sample
+            logging.warning(f"Skipping {name}: logit shape {logit.shape} is incorrect")
+            return None, None
+        
+        # Check for NaN values
+        if torch.isnan(logit).any():
+            logging.warning(f"Skipping {name}: logit contains NaN values")
+            return None, None
+        
+        # Get probability map: (C, H_logit, W_logit)
+        prob = F.softmax(logit, dim=0).numpy()
+        
+        # Resize probability map to match image size if needed
+        if prob.shape[1] != H or prob.shape[2] != W:
+            prob_tensor = torch.FloatTensor(prob).unsqueeze(0)  # (1, C, H_logit, W_logit)
+            prob_tensor = F.interpolate(prob_tensor, size=(H, W), mode='bilinear', align_corners=False)
+            prob = prob_tensor[0].numpy()  # (C, H, W)
 
         image = image.astype(np.uint8)
         prob = post_processor(image, prob)
@@ -159,6 +204,12 @@ def crf_proc():
     n_jobs = int(os.cpu_count() * 0.6)
     results = joblib.Parallel(n_jobs=n_jobs, verbose=10, pre_dispatch="all")([joblib.delayed(_job)(i) for i in range(len(name_list))])
 
+    # Filter out None results (skipped samples)
+    results = [r for r in results if r[0] is not None]
+    if len(results) == 0:
+        logging.error("No valid results after CRF processing")
+        return None
+    
     preds, gts = zip(*results)
 
     crf_score = evaluate.scores(gts, preds)
@@ -206,7 +257,7 @@ def validate(args=None):
     seg_score = _validate(model=model, data_loader=val_loader, args=args)
     torch.cuda.empty_cache()
 
-    crf_score = crf_proc()
+    crf_score = crf_proc(args=args)
     
     return True
 

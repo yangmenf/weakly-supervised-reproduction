@@ -81,7 +81,7 @@ parser.add_argument("--num_classes", default=21, type=int, help="number of class
 parser.add_argument("--crop_size", default=448, type=int, help="crop_size in training")
 parser.add_argument("--train_set", default="train", type=str, help="training split")
 parser.add_argument("--val_set", default="val", type=str, help="validation split")
-parser.add_argument("--spg", default=12, type=int, help="samples_per_gpu (optimized for 24GB GPU, safe batch size)")
+parser.add_argument("--spg", default=4, type=int, help="samples_per_gpu")
 parser.add_argument("--use_aa", type=bool, default=False)
 parser.add_argument("--use_gauss", type=bool, default=False)
 parser.add_argument("--use_solar", type=bool, default=False)
@@ -96,10 +96,9 @@ parser.add_argument("--wt_decay", default=1e-2, type=float, help="weights decay"
 parser.add_argument("--betas", default=(0.9, 0.999), help="betas for Adam")
 parser.add_argument("--power", default=0.9, type=float, help="poweer factor for poly scheduler")
 parser.add_argument("--local_rank", default=-1, type=int, help="local_rank")
-parser.add_argument("--num_workers", default=16, type=int, help="num_workers (optimized for 18-core CPU: ~90% of cores)")
+parser.add_argument("--num_workers", default=10, type=int, help="num_workers")
 parser.add_argument('--backend', default='nccl')
-parser.add_argument("--use_amp", default=True, type=bool, help="use mixed precision training")
-parser.add_argument("--pin_memory", default=True, type=bool, help="pin memory for faster data transfer")
+parser.add_argument("--pin_memory", default=False, type=bool, help="pin memory for faster data transfer")
 
 def setup_seed(seed):
     torch.manual_seed(seed)
@@ -127,15 +126,7 @@ def train(args=None):
     model, param_groups = build_network(args)
     model.to(device)
     
-    # Set memory allocation strategy to reduce fragmentation
-    import os
-    os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:512'
-    
-    # Optimize DDP: set find_unused_parameters=False for better performance if possible
     model = DistributedDataParallel(model, device_ids=[args.local_rank], find_unused_parameters=True)
-    
-    # Enable mixed precision training
-    scaler = torch.cuda.amp.GradScaler() if args.use_amp else None
     
     # Clear cache before training
     torch.cuda.empty_cache()
@@ -174,20 +165,17 @@ def train(args=None):
         train_dataset,
         batch_size=args.spg,
         num_workers=args.num_workers,
-        pin_memory=args.pin_memory,  # Enable for faster CPU-GPU transfer
+        pin_memory=args.pin_memory,
         drop_last=True,
         sampler=train_sampler,
-        prefetch_factor=24,  # Further increased for better data loading (2x batch_size)
-        persistent_workers=True,  # Keep workers alive between epochs
-        multiprocessing_context='spawn')  # Use spawn for better stability
+        prefetch_factor=4)
 
     val_loader = DataLoader(val_dataset,
                             batch_size=1,
                             shuffle=False,
                             num_workers=args.num_workers,
                             pin_memory=args.pin_memory,
-                            drop_last=False,
-                            persistent_workers=True)
+                            drop_last=False)
     train_sampler.set_epoch(np.random.randint(args.max_iters))
     train_loader_iter = iter(train_loader)
     avg_meter = AverageMeter()
@@ -214,12 +202,8 @@ def train(args=None):
         inputs_denorm = imutils.denormalize_img2(inputs.clone())
         cls_label = cls_label.to(device, non_blocking=True)
 
-        # Use mixed precision for forward pass
-        with torch.cuda.amp.autocast(enabled=args.use_amp):
-            cams, cams_aux = multi_scale_cam2(model, inputs=inputs, scales=args.cam_scales,)
-            cls, segs, fmap, cls_aux, attr_tokens, _ = model(inputs, with_gcr=args.with_gcr)
-        
-        # Post-processing (outside autocast for better stability)
+        cams, cams_aux = multi_scale_cam2(model, inputs=inputs, scales=args.cam_scales,)
+        cls, segs, fmap, cls_aux, attr_tokens, _ = model(inputs, with_gcr=args.with_gcr)
         # Use detach() to avoid blocking GPU computation - allows GPU to continue while CPU processes
         valid_cam, _ = cam_to_label(cams.detach(), cls_label=cls_label, img_box=img_box, ignore_mid=True, bkg_thre=args.bkg_thre, high_thre=args.high_thre, low_thre=args.low_thre, ignore_index=args.ignore_index)
         refined_pseudo_label = refine_cams_with_bkg_v2(par, inputs_denorm, cams=valid_cam, cls_labels=cls_label,  high_thre=args.high_thre, low_thre=args.low_thre, ignore_index=args.ignore_index, img_box=img_box, )
@@ -280,14 +264,8 @@ def train(args=None):
         })
 
         optim.zero_grad()
-        # Use mixed precision for backward pass
-        if args.use_amp and scaler is not None:
-            scaler.scale(loss).backward()
-            scaler.step(optim)
-            scaler.update()
-        else:
-            loss.backward()
-            optim.step()
+        loss.backward()
+        optim.step()
 
         if (n_iter + 1) % args.log_iters == 0:
 
